@@ -37,6 +37,7 @@ using namespace v8;
 #define CREATE_ESCAPABLE_CONTEXT    	v8::Isolate* isolate = Isolate::GetCurrent(); \
 EscapableHandleScope scope(isolate);
 
+
 #define CREATE_UNESCAPABLE_CONTEXT   	v8::Isolate* isolate = Isolate::GetCurrent(); \
 HandleScope scope(isolate);
 
@@ -46,7 +47,7 @@ if (!args.This()->IsObject()) { \
 	LOGE("context method '%s' got no this object", __PRETTY_FUNCTION__);  \
 	isolate->ThrowException(v8::Exception::ReferenceError(v8::String::NewFromUtf8(isolate, "Can't run as static function").ToLocalChecked())); \
 } \
-BGJSCanvasContext *__context = (static_cast<BGJSV8Engine2dGL*>(v8::External::Cast(*(args.This()->ToObject(isolate->GetCurrentContext()).ToLocalChecked()->GetInternalField(0)))->Value()))->context; \
+  BGJSCanvasContext *__context = (static_cast<BGJSV8Engine2dGL *>(v8::External::Cast(static_cast<Value *>(*(args.This()->ToObject(isolate->GetCurrentContext()).ToLocalChecked()->GetInternalField(0))))->Value()))->context; \
 if (!__context->_isRendering) { \
 	LOGI("Context is not in rendering phase in method '%s'", __PRETTY_FUNCTION__); \
 	isolate->ThrowException(v8::Exception::ReferenceError(v8::String::NewFromUtf8(isolate, "Can't run when not in rendering phase").ToLocalChecked())); \
@@ -57,7 +58,7 @@ if (!args.This()->IsObject()) { \
     LOGE("context method '%s' got no this object", __PRETTY_FUNCTION__);  \
     isolate->ThrowException(v8::Exception::ReferenceError(v8::String::NewFromUtf8(isolate, "Can't run as static function").ToLocalChecked())); \
 } \
-BGJSCanvasContext *__context = (static_cast<BGJSV8Engine2dGL*>(v8::External::Cast(*(args.This()->ToObject(isolate->GetCurrentContext()).ToLocalChecked()->GetInternalField(0)))->Value()))->context; \
+BGJSCanvasContext *__context = (static_cast<BGJSV8Engine2dGL *>(v8::External::Cast(static_cast<Value *>(*(args.This()->ToObject(isolate->GetCurrentContext()).ToLocalChecked()->GetInternalField(0))))->Value()))->context; \
 
 #define CONTEXT_FETCH_ESCAPABLE()  CREATE_ESCAPABLE_CONTEXT \
 CONTEXT_FETCH_WHILE_RENDERING

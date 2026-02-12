@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.4.1)
 
-set (CMAKE_CXX_STANDARD 14)
+set (CMAKE_CXX_STANDARD 17)
 set (CMAKE_CXX_EXTENSIONS OFF)
 
 #--------------------------------------------------
@@ -68,9 +68,7 @@ endif()
 # select right v8 library for current abi
 #--------------------------------------------------
 
-if ("${CMAKE_SYSTEM_PROCESSOR}" STREQUAL "i686")
-  set(v8-abi x86)
-elseif ("${CMAKE_SYSTEM_PROCESSOR}" STREQUAL "x86_64")
+if ("${CMAKE_SYSTEM_PROCESSOR}" STREQUAL "x86_64")
   set(v8-abi x86_64)
   add_definitions(-DV8_COMPRESS_POINTERS)
 elseif ("${CMAKE_SYSTEM_PROCESSOR}" STREQUAL "armv7-a")
