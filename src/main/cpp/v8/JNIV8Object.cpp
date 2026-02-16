@@ -93,7 +93,7 @@ void JNIV8Object::makeWeak() {
     // wrapper type objects are not directly linked to the lifecycle of the js object
     // they can be destroyed / gced from java at any time, and there can exist multiple
     if(_v8ClassInfo->container->type == JNIV8ObjectType::kWrapper || _jsObject.IsWeak()) return;
-    _jsObject.SetWeak((void*)this, JNIV8Object::weakPersistentCallback, WeakCallbackType::kFinalizer);
+    _jsObject.SetWeak((void*)this, JNIV8Object::weakPersistentCallback, WeakCallbackType::kParameter);
 
     // create a strong reference to the java object as long as the JS object is referenced from somewhere
     retainJObject();
@@ -107,7 +107,7 @@ void JNIV8Object::linkJSObject(v8::Handle<v8::Object> jsObject) {
 
     // store reference to native object in JS object
     if(_v8ClassInfo->container->type != JNIV8ObjectType::kWrapper) {
-        JNI_ASSERT(jsObject->GetInternalField(0)->IsUndefined(), "failed to link js object");
+        JNI_ASSERT(jsObject->GetInternalField(0).As<v8::Value>()->IsUndefined(),"failed to link js object");
         jsObject->SetInternalField(0, External::New(isolate, (void *) this));
     }
 

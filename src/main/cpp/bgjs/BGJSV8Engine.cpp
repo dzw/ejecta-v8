@@ -1142,10 +1142,10 @@ void BGJSV8Engine::createContext() {
         LOGD("Created default platform %p", defaultPlatform.get());
         v8::V8::InitializePlatform(defaultPlatform.get());
         LOGD("Initialized platform");
-        v8::V8::Initialize();
         std::string flags = "--expose_gc --max_old_space_size=";
         flags = flags + std::to_string(_maxHeapSize);
         v8::V8::SetFlagsFromString(flags.c_str(), (int) flags.length());
+        v8::V8::Initialize();
         LOGD("Initialized v8: %s", v8::V8::GetVersion());
     }
 

@@ -211,7 +211,7 @@ void JNIV8ClassInfo::v8JavaMethodCallback(const v8::FunctionCallbackInfo<v8::Val
     // otherwise "this" can be anything, we do not care..
     if(!cb->isStatic) {
         v8::Local<v8::Object> thisArg = args.This();
-        v8::Local<v8::Value> internalField = thisArg->GetInternalField(0);
+        v8::Local<v8::Value> internalField = thisArg->GetInternalField(0).As<v8::Value>();
         // this is not really "safe".. but how could it be? another part of the program could store arbitrary stuff in internal fields
         ext = internalField.As<v8::External>();
         auto *v8Object = reinterpret_cast<JNIV8Object *>(ext->Value());
@@ -670,9 +670,7 @@ void JNIV8ClassInfo::_registerJavaAccessor(JNIV8ObjectJavaAccessorHolder *holder
                        data, DEFAULT, settings);
     } else {
         Local<ObjectTemplate> instanceTpl = ft->InstanceTemplate();
-        instanceTpl->SetAccessor(nameRef,
-                                 v8JavaAccessorGetterCallback, finalSetter,
-                                 data, DEFAULT, settings);
+        instanceTpl->SetAccessor(nameRef,v8JavaAccessorGetterCallback, finalSetter, data, settings);
     }
 }
 
@@ -732,7 +730,7 @@ void JNIV8ClassInfo::_registerAccessor(JNIV8ObjectAccessorHolder *holder) {
         Local<ObjectTemplate> instanceTpl = ft->InstanceTemplate();
         instanceTpl->SetAccessor(nameRef,
                                  v8AccessorGetterCallback, finalSetter,
-                                 data, DEFAULT, settings);
+                                 data, settings);
     }
 }
 
