@@ -175,11 +175,15 @@ using SandboxedPointer_t = Address;
 #ifdef V8_ENABLE_SANDBOX
 
 // Size of the sandbox, excluding the guard regions surrounding it.
-#ifdef V8_TARGET_OS_ANDROID
+#if defined(V8_TARGET_OS_ANDROID)
 // On Android, most 64-bit devices seem to be configured with only 39 bits of
 // virtual address space for userspace. As such, limit the sandbox to 128GB (a
 // quarter of the total available address space).
 constexpr size_t kSandboxSizeLog2 = 37;  // 128 GB
+#elif defined(V8_TARGET_ARCH_LOONG64)
+// Some Linux distros on LoongArch64 configured with only 40 bits of virtual
+// address space for userspace. Limit the sandbox to 256GB here.
+constexpr size_t kSandboxSizeLog2 = 38;  // 256 GB
 #else
 // Everywhere else use a 1TB sandbox.
 constexpr size_t kSandboxSizeLog2 = 40;  // 1 TB
@@ -421,7 +425,7 @@ constexpr uint64_t kAllExternalPointerTypeTags[] = {
 /* it is the Embedder's responsibility to ensure type safety (against */   \
 /* substitution) and lifetime validity of these objects. */                \
   V(kExternalObjectValueTag,                    TAG(13)) \
-  V(kCallHandlerInfoCallbackTag,                TAG(14)) \
+  V(kFunctionTemplateInfoCallbackTag,           TAG(14)) \
   V(kAccessorInfoGetterTag,                     TAG(15)) \
   V(kAccessorInfoSetterTag,                     TAG(16)) \
   V(kWasmInternalFunctionCallTargetTag,         TAG(17)) \
@@ -474,7 +478,7 @@ V8_INLINE static constexpr bool IsSharedExternalPointerType(
 V8_INLINE static constexpr bool IsMaybeReadOnlyExternalPointerType(
     ExternalPointerTag tag) {
   return tag == kAccessorInfoGetterTag || tag == kAccessorInfoSetterTag ||
-         tag == kCallHandlerInfoCallbackTag;
+         tag == kFunctionTemplateInfoCallbackTag;
 }
 
 // Sanity checks.
@@ -606,7 +610,11 @@ constexpr int kCodePointerTableEntryCodeObjectOffset = 8;
 
 // Constants that can be used to mark places that should be modified once
 // certain types of objects are moved out of the sandbox and into trusted space.
-constexpr bool kCodeObjectLiveInTrustedSpace = false;
+constexpr bool kRuntimeGeneratedCodeObjectsLiveInTrustedSpace = true;
+constexpr bool kBuiltinCodeObjectsLiveInTrustedSpace = false;
+constexpr bool kAllCodeObjectsLiveInTrustedSpace =
+    kRuntimeGeneratedCodeObjectsLiveInTrustedSpace &&
+    kBuiltinCodeObjectsLiveInTrustedSpace;
 
 // {obj} must be the raw tagged pointer representation of a HeapObject
 // that's guaranteed to never be in ReadOnlySpace.
@@ -661,7 +669,7 @@ class Internals {
   static const int kBuiltinTier0EntryTableSize = 7 * kApiSystemPointerSize;
   static const int kBuiltinTier0TableSize = 7 * kApiSystemPointerSize;
   static const int kLinearAllocationAreaSize = 3 * kApiSystemPointerSize;
-  static const int kThreadLocalTopSize = 28 * kApiSystemPointerSize;
+  static const int kThreadLocalTopSize = 30 * kApiSystemPointerSize;
   static const int kHandleScopeDataSize =
       2 * kApiSystemPointerSize + 2 * kApiInt32Size;
 
@@ -688,8 +696,12 @@ class Internals {
       kBuiltinTier0TableOffset + kBuiltinTier0TableSize;
   static const int kOldAllocationInfoOffset =
       kNewAllocationInfoOffset + kLinearAllocationAreaSize;
+
+  static const int kFastCCallAlignmentPaddingSize =
+      kApiSystemPointerSize == 8 ? 0 : kApiSystemPointerSize;
   static const int kIsolateFastCCallCallerFpOffset =
-      kOldAllocationInfoOffset + kLinearAllocationAreaSize;
+      kOldAllocationInfoOffset + kLinearAllocationAreaSize +
+      kFastCCallAlignmentPaddingSize;
   static const int kIsolateFastCCallCallerPcOffset =
       kIsolateFastCCallCallerFpOffset + kApiSystemPointerSize;
   static const int kIsolateFastApiCallTargetOffset =
@@ -708,8 +720,10 @@ class Internals {
   static const int kIsolateSharedExternalPointerTableAddressOffset =
       kIsolateExternalPointerTableOffset + kExternalPointerTableSize;
 #ifdef V8_ENABLE_SANDBOX
-  static const int kIsolateTrustedPointerTableOffset =
+  static const int kIsolateTrustedCageBaseOffset =
       kIsolateSharedExternalPointerTableAddressOffset + kApiSystemPointerSize;
+  static const int kIsolateTrustedPointerTableOffset =
+      kIsolateTrustedCageBaseOffset + kApiSystemPointerSize;
   static const int kIsolateApiCallbackThunkArgumentOffset =
       kIsolateTrustedPointerTableOffset + kTrustedPointerTableSize;
 #else
@@ -720,32 +734,40 @@ class Internals {
   static const int kIsolateApiCallbackThunkArgumentOffset =
       kIsolateEmbedderDataOffset + kNumIsolateDataSlots * kApiSystemPointerSize;
 #endif  // V8_COMPRESS_POINTERS
-  static const int kWasm64OOBOffsetOffset =
-      kIsolateApiCallbackThunkArgumentOffset + kApiSystemPointerSize;
   static const int kContinuationPreservedEmbedderDataOffset =
-      kWasm64OOBOffsetOffset + sizeof(int64_t);
+      kIsolateApiCallbackThunkArgumentOffset + kApiSystemPointerSize;
+
+  static const int kWasm64OOBOffsetAlignmentPaddingSize = 0;
+  static const int kWasm64OOBOffsetOffset =
+      kContinuationPreservedEmbedderDataOffset + kApiSystemPointerSize +
+      kWasm64OOBOffsetAlignmentPaddingSize;
   static const int kIsolateRootsOffset =
-      kContinuationPreservedEmbedderDataOffset + kApiSystemPointerSize;
+      kWasm64OOBOffsetOffset + sizeof(int64_t);
 
 #if V8_STATIC_ROOTS_BOOL
 
-// These constants need to be initialized in api.cc.
+// These constants are copied from static-roots.h and guarded by static asserts.
 #define EXPORTED_STATIC_ROOTS_PTR_LIST(V) \
-  V(UndefinedValue)                       \
-  V(NullValue)                            \
-  V(TrueValue)                            \
-  V(FalseValue)                           \
-  V(EmptyString)                          \
-  V(TheHoleValue)
+  V(UndefinedValue, 0x69)                 \
+  V(NullValue, 0x85)                      \
+  V(TrueValue, 0xc9)                      \
+  V(FalseValue, 0xad)                     \
+  V(EmptyString, 0xa1)                    \
+  V(TheHoleValue, 0x719)
 
   using Tagged_t = uint32_t;
   struct StaticReadOnlyRoot {
-#define DEF_ROOT(name) V8_EXPORT static const Tagged_t k##name;
+#define DEF_ROOT(name, value) static constexpr Tagged_t k##name = value;
     EXPORTED_STATIC_ROOTS_PTR_LIST(DEF_ROOT)
 #undef DEF_ROOT
 
-    V8_EXPORT static const Tagged_t kFirstStringMap;
-    V8_EXPORT static const Tagged_t kLastStringMap;
+    static constexpr Tagged_t kFirstStringMap = 0xe5;
+    static constexpr Tagged_t kLastStringMap = 0x47d;
+
+#define PLUSONE(...) +1
+    static constexpr size_t kNumberOfExportedStaticRoots =
+        2 + EXPORTED_STATIC_ROOTS_PTR_LIST(PLUSONE);
+#undef PLUSONE
   };
 
 #endif  // V8_STATIC_ROOTS_BOOL
@@ -762,8 +784,6 @@ class Internals {
   static const int kNodeStateMask = 0x3;
   static const int kNodeStateIsWeakValue = 2;
 
-  static const int kTracedNodeClassIdOffset = kApiSystemPointerSize;
-
   static const int kFirstNonstringType = 0x80;
   static const int kOddballType = 0x83;
   static const int kForeignType = 0xcc;
@@ -771,6 +791,11 @@ class Internals {
   static const int kJSObjectType = 0x421;
   static const int kFirstJSApiObjectType = 0x422;
   static const int kLastJSApiObjectType = 0x80A;
+  // Defines a range [kFirstEmbedderJSApiObjectType, kJSApiObjectTypesCount]
+  // of JSApiObject instance type values that an embedder can use.
+  static const int kFirstEmbedderJSApiObjectType = 0;
+  static const int kLastEmbedderJSApiObjectType =
+      kLastJSApiObjectType - kFirstJSApiObjectType;
 
   static const int kUndefinedOddballKind = 4;
   static const int kNullOddballKind = 3;
@@ -924,15 +949,15 @@ class Internals {
     Address base = *reinterpret_cast<Address*>(
         reinterpret_cast<uintptr_t>(isolate) + kIsolateCageBaseOffset);
     switch (index) {
-#define DECOMPRESS_ROOT(name) \
-  case k##name##RootIndex:    \
+#define DECOMPRESS_ROOT(name, ...) \
+  case k##name##RootIndex:         \
     return base + StaticReadOnlyRoot::k##name;
       EXPORTED_STATIC_ROOTS_PTR_LIST(DECOMPRESS_ROOT)
 #undef DECOMPRESS_ROOT
+#undef EXPORTED_STATIC_ROOTS_PTR_LIST
       default:
         break;
     }
-#undef EXPORTED_STATIC_ROOTS_PTR_LIST
 #endif  // V8_STATIC_ROOTS_BOOL
     return *GetRootSlot(isolate, index);
   }
@@ -1029,6 +1054,10 @@ class Internals {
 #ifdef V8_COMPRESS_POINTERS
   V8_INLINE static Address GetPtrComprCageBaseFromOnHeapAddress(Address addr) {
     return addr & -static_cast<intptr_t>(kPtrComprCageBaseAlignment);
+  }
+
+  V8_INLINE static uint32_t CompressTagged(Address value) {
+    return static_cast<uint32_t>(value);
   }
 
   V8_INLINE static Address DecompressTaggedField(Address heap_object_ptr,
@@ -1355,6 +1384,7 @@ class HandleHelper final {
     return lhs.ptr() == rhs.ptr();
   }
 
+  static V8_EXPORT bool IsOnStack(const void* ptr);
   static V8_EXPORT void VerifyOnStack(const void* ptr);
   static V8_EXPORT void VerifyOnMainThread();
 };

@@ -53,7 +53,7 @@ V8_EXPORT void DisposeTracedReference(internal::Address* global_handle);
  * An indirect handle, where the indirect pointer points to a GlobalHandles
  * node.
  */
-class TracedReferenceBase : public IndirectHandleBase {
+class TracedReferenceBase : public api_internal::IndirectHandleBase {
  public:
   /**
    * If non-empty, destroy the underlying storage cell. |IsEmpty| will return
@@ -76,21 +76,6 @@ class TracedReferenceBase : public IndirectHandleBase {
   bool IsEmptyThreadSafe() const {
     return this->GetSlotThreadSafe() == nullptr;
   }
-
-  /**
-   * Assigns a wrapper class ID to the handle.
-   */
-  V8_DEPRECATE_SOON(
-      "Embedders need to maintain state for references themselves.")
-  V8_INLINE void SetWrapperClassId(uint16_t class_id);
-
-  /**
-   * Returns the class ID previously assigned to this handle or 0 if no class ID
-   * was previously assigned.
-   */
-  V8_DEPRECATE_SOON(
-      "Embedders need to maintain state for references themselves.")
-  V8_INLINE uint16_t WrapperClassId() const;
 
  protected:
   V8_INLINE TracedReferenceBase() = default;
@@ -440,22 +425,6 @@ TracedReference<T>& TracedReference<T>::operator=(const TracedReference& rhs) {
     }
   }
   return *this;
-}
-
-void TracedReferenceBase::SetWrapperClassId(uint16_t class_id) {
-  using I = internal::Internals;
-  if (IsEmpty()) return;
-  uint8_t* addr =
-      reinterpret_cast<uint8_t*>(slot()) + I::kTracedNodeClassIdOffset;
-  *reinterpret_cast<uint16_t*>(addr) = class_id;
-}
-
-uint16_t TracedReferenceBase::WrapperClassId() const {
-  using I = internal::Internals;
-  if (IsEmpty()) return 0;
-  uint8_t* addr =
-      reinterpret_cast<uint8_t*>(slot()) + I::kTracedNodeClassIdOffset;
-  return *reinterpret_cast<uint16_t*>(addr);
 }
 
 }  // namespace v8
