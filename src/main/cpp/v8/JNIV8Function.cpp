@@ -28,13 +28,16 @@ void JNIV8Function::initJNICache() {
 }
 
 void JNIV8FunctionWeakPersistentCallback(const v8::WeakCallbackInfo<void>& data) {
-    JNIEnv *env = JNIWrapper::getEnvironment();
-
+    // V8 12.4 requires Reset() in the first-pass callback (node must be FREE)
     JNIV8FunctionCallbackHolder *holder = reinterpret_cast<JNIV8FunctionCallbackHolder*>(data.GetParameter());
-    env->DeleteGlobalRef(holder->jFuncRef);
-
     holder->persistent.Reset();
-    delete holder;
+
+    data.SetSecondPassCallback([](const v8::WeakCallbackInfo<void>& data) {
+        JNIEnv *env = JNIWrapper::getEnvironment();
+        JNIV8FunctionCallbackHolder *holder = reinterpret_cast<JNIV8FunctionCallbackHolder*>(data.GetParameter());
+        env->DeleteGlobalRef(holder->jFuncRef);
+        delete holder;
+    });
 }
 
 void JNIV8Function::v8FunctionCallback(const v8::FunctionCallbackInfo<v8::Value>& args) {

@@ -72,28 +72,30 @@ void JNIV8Object::OnJSObjectAssigned() {
 }
 
 void JNIV8Object::weakPersistentCallback(const WeakCallbackInfo<void>& data) {
-    // never use the raw pointer directly; this way we are retaining the object until this method finishes!
     auto jniV8Object = reinterpret_cast<JNIV8Object*>(data.GetParameter());
 
-    // "resurrect" the JS object, because we might need it later in some native or java function
-    // IF we do, we have to make a strong reference to the java object again and also register this callback for
-    // the provided JS object reference!
-    jniV8Object->_jsObject.ClearWeak();
+    // V8 12.4 requires that the first-pass callback resets the handle (node must be FREE).
+    // Resurrection via ClearWeak() is no longer allowed in first-pass callbacks.
+    // We must Reset() here and defer cleanup to the second pass.
+    jniV8Object->_jsObject.Reset();
 
-    // we are only holding the object because java/native is still alive, v8 can not gc it anymore
-    // => adjust external memory counter
-    jniV8Object->_bgjsEngine->getIsolate()->AdjustAmountOfExternalAllocatedMemory(-jniV8Object->_externalMemory);
+    data.SetSecondPassCallback([](const WeakCallbackInfo<void>& data) {
+        auto jniV8Object = reinterpret_cast<JNIV8Object*>(data.GetParameter());
 
-    // finally: the js object is no longer being used => release the strong reference to the java object
-    // NOTE: object might be deleted by another thread after calling this
-    jniV8Object->releaseJObject();
+        // adjust external memory counter
+        jniV8Object->_bgjsEngine->getIsolate()->AdjustAmountOfExternalAllocatedMemory(-jniV8Object->_externalMemory);
+
+        // the js object is no longer being used => release the strong reference to the java object
+        // NOTE: object might be deleted by another thread after calling this
+        jniV8Object->releaseJObject();
+    });
 }
 
 void JNIV8Object::makeWeak() {
     // wrapper type objects are not directly linked to the lifecycle of the js object
     // they can be destroyed / gced from java at any time, and there can exist multiple
     if(_v8ClassInfo->container->type == JNIV8ObjectType::kWrapper || _jsObject.IsWeak()) return;
-    _jsObject.SetWeak((void*)this, JNIV8Object::weakPersistentCallback, WeakCallbackType::kFinalizer);
+    _jsObject.SetWeak((void*)this, JNIV8Object::weakPersistentCallback, WeakCallbackType::kParameter);
 
     // create a strong reference to the java object as long as the JS object is referenced from somewhere
     retainJObject();
@@ -107,7 +109,7 @@ void JNIV8Object::linkJSObject(v8::Handle<v8::Object> jsObject) {
 
     // store reference to native object in JS object
     if(_v8ClassInfo->container->type != JNIV8ObjectType::kWrapper) {
-        JNI_ASSERT(jsObject->GetInternalField(0)->IsUndefined(), "failed to link js object");
+        JNI_ASSERT(jsObject->GetInternalField(0).As<v8::Value>()->IsUndefined(),"failed to link js object");
         jsObject->SetInternalField(0, External::New(isolate, (void *) this));
     }
 

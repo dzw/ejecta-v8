@@ -14,7 +14,7 @@ You can use our sample app under https://github.com/godmodelabs/ejecta-v8-sample
 to get a feel for the library.
 
 This library needs a precompiled, statically linked version of v8 to link
-against. Currently this is tested against 8.2.297.3 See also *Updating v8*.
+against. Currently this is tested against 12.4.254.21 See also *Updating v8*.
 
 It also needs a precompiled, statically linked version of libuv.
 
@@ -29,7 +29,7 @@ The libs/v8 folder should look like this:
 # pwd
 ~/git/ejecta-v8/libs/v8
 # ls
-arm64-v8a   armeabi-v7a x86         x86_64
+arm64-v8a   armeabi-v7a     x86_64
 ```
 
 The folders in livs/uv should be the same.
@@ -47,9 +47,9 @@ Coming soon.
 
 ## Building v8 from sources
 
-We need NDK r20b. We assume it to be in $NDKPATH:
+We need NDK r29. We assume it to be in $NDKPATH:
 
-`export ANDROID_NDK_HOME=~/android-ndk-r20b` (or wherever you installed it to). Don't forget to add it to the path:
+`export ANDROID_NDK_HOME=~/android-ndk-r29` (or wherever you installed it to). Don't forget to add it to the path:
 `export PATH=$PATH:$ANDROID_NDK_HOME`
 
 For steps 1 and 2 see also the [v8 project documentation](https://github.com/v8/v8/wiki/Using%20Git).
@@ -57,21 +57,20 @@ For steps 1 and 2 see also the [v8 project documentation](https://github.com/v8/
 1. [get depot_tools](https://www.chromium.org/developers/how-tos/install-depot-tools)
 2. Get the sources: `fetch v8`
 3. `cd v8`
-4. Checkout correct revision: `git checkout 8.2.297.3`
+4. Checkout correct revision: `git checkout 12.4.254.21`
 5. `echo "target_os = ['android']" >> ../.gclient && gclient sync --nohooks` as [described on v8 wiki](https://github.com/v8/v8/wiki/D8%20on%20Android)
 6. Create GN build configuration for each ABI.
 ### x64
-`gn gen out.gn/x64.release --args='host_cpu="x64" is_clang=true is_component_build=false is_debug=false is_official_build=true strip_debug_info=true symbol_level=0 target_cpu="x64" target_os="android" treat_warnings_as_errors=false v8_enable_i18n_support=false v8_enable_verify_heap=true v8_target_cpu="x64" v8_use_external_startup_data=false use_thin_lto=false use_glib=false android_ndk_root="${ANDROID_NDK_HOME}" libcxx_abi_unstable=false use_sysroot=false use_custom_libcxx=false v8_static_library=true v8_monolithic=true'`
+`gn gen out.gn/x64.release --args='host_cpu="x64" is_clang=true is_component_build=false is_debug=false is_official_build=true symbol_level=0 target_cpu="x64" target_os="android" treat_warnings_as_errors=false v8_enable_i18n_support=false v8_enable_verify_heap=true v8_target_cpu="x64" v8_use_external_startup_data=false use_thin_lto=false use_glib=false android_ndk_root="${ANDROID_NDK_HOME}" libcxx_abi_unstable=false use_sysroot=false use_custom_libcxx=false v8_static_library=true v8_monolithic=true v8_enable_pointer_compression=true v8_enable_sandbox=true v8_enable_16kb_page_size=true chrome_pgo_phase=0'`
 `ninja -C out.gn/x64.release v8_monolith`
 ### arm
-`gn gen out.gn/arm.release --args='host_cpu="x64" is_clang=true is_component_build=false is_debug=false is_official_build=true strip_debug_info=true symbol_level=0 target_cpu="arm" target_os="android" treat_warnings_as_errors=false v8_enable_i18n_support=false v8_enable_verify_heap=true v8_target_cpu="arm" v8_use_external_startup_data=false use_thin_lto=false use_glib=false android_ndk_root="${ANDROID_NDK_HOME}" use_custom_libcxx=false v8_static_library=true v8_monolithic=true'`
+`gn gen out.gn/arm.release --args='host_cpu="x64" is_clang=true is_component_build=false is_debug=false is_official_build=true symbol_level=0 target_cpu="arm" target_os="android" treat_warnings_as_errors=false v8_enable_i18n_support=false v8_enable_verify_heap=true v8_target_cpu="arm" v8_use_external_startup_data=false use_thin_lto=false use_glib=false android_ndk_root="${ANDROID_NDK_HOME}" use_custom_libcxx=false v8_static_library=true v8_monolithic=true v8_enable_pointer_compression=false v8_enable_sandbox=false chrome_pgo_phase=0'`
 `ninja -C out.gn/arm.release v8_monolith`
 ### arm64
-`gn gen out.gn/arm64.release --args='host_cpu="x64" is_clang=true is_component_build=false is_debug=false is_official_build=true strip_debug_info=true symbol_level=0 target_cpu="arm64" target_os="android" treat_warnings_as_errors=false v8_enable_i18n_support=false v8_enable_verify_heap=true v8_target_cpu="arm64" v8_use_external_startup_data=false use_thin_lto=false use_glib=false android_ndk_root="${ANDROID_NDK_HOME}" use_custom_libcxx=false v8_static_library=true v8_monolithic=true'`
+`gn gen out.gn/arm64.release --args='host_cpu="x64" is_clang=true is_component_build=false is_debug=false is_official_build=true symbol_level=0 target_cpu="arm64" target_os="android" treat_warnings_as_errors=false v8_enable_i18n_support=false v8_enable_verify_heap=true v8_target_cpu="arm64" v8_use_external_startup_data=false use_thin_lto=false use_glib=false android_ndk_root="${ANDROID_NDK_HOME}" use_custom_libcxx=false v8_static_library=true v8_monolithic=true  v8_enable_pointer_compression=true v8_enable_sandbox=true v8_enable_16kb_page_size=true chrome_pgo_phase=0'`
 `ninja -C out.gn/arm64.release v8_monolith`
-### x86
-`gn gen out.gn/x86.release --args='host_cpu="x64" is_clang=true is_component_build=false is_debug=false is_official_build=true strip_debug_info=true symbol_level=0 target_cpu="x86" target_os="android" treat_warnings_as_errors=false v8_enable_i18n_support=false v8_enable_verify_heap=true v8_target_cpu="x86" v8_use_external_startup_data=false use_thin_lto=false use_glib=false android_ndk_root="${ANDROID_NDK_HOME}" use_custom_libcxx=false v8_static_library=true v8_monolithic=true'`
-`ninja -C out.gn/x86.release v8_monolith`
+
+
 7. Copy and rename resulting libv8_monolith.a into the folder where ndk-build expects it: `cp libv8_monolith.a $PATH_TO_YOUR_EJECTAV8_CHECKOUT/bgjslibrary/jni/libs/$ABI/libv8.a` where
 $ABI is either armeabi-v7a, arm64-v8a, x86 or x86_64.
 
@@ -79,7 +78,7 @@ Steps 6-7 can be repeated as mentioned for each ABI you want to support. Step 7 
 
 # Building the sample
 
-Set up at least NDK r20b and make sure it is in the search path.
+Set up at least NDK r29 and make sure it is in the search path.
 
 ./gradlew assembleDebug
 

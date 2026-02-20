@@ -222,9 +222,14 @@ decltype(BGJSV8Engine::_jniStackTraceElement) BGJSV8Engine::_jniStackTraceElemen
 decltype(BGJSV8Engine::_jniV8Engine) BGJSV8Engine::_jniV8Engine = {nullptr};
 
 void BGJSV8Engine::RejectedPromiseHolderWeakPersistentCallback(const v8::WeakCallbackInfo<void> &data) {
+    // V8 12.4 requires Reset() in the first-pass callback (node must be FREE)
     auto *holder = reinterpret_cast<RejectedPromiseHolder *>(data.GetParameter());
     holder->promise.Reset();
-    holder->collected = true;
+
+    data.SetSecondPassCallback([](const v8::WeakCallbackInfo<void> &data) {
+        auto *holder = reinterpret_cast<RejectedPromiseHolder *>(data.GetParameter());
+        holder->collected = true;
+    });
 }
 
 /**
@@ -238,13 +243,16 @@ struct BGJSV8EngineJavaErrorHolder {
 };
 
 void BGJSV8EngineJavaErrorHolderWeakPersistentCallback(const v8::WeakCallbackInfo<void> &data) {
-    JNIEnv *env = JNIWrapper::getEnvironment();
-
+    // V8 12.4 requires Reset() in the first-pass callback (node must be FREE)
     auto *holder = reinterpret_cast<BGJSV8EngineJavaErrorHolder *>(data.GetParameter());
-    env->DeleteGlobalRef(holder->throwable);
-
     holder->persistent.Reset();
-    delete holder;
+
+    data.SetSecondPassCallback([](const v8::WeakCallbackInfo<void> &data) {
+        JNIEnv *env = JNIWrapper::getEnvironment();
+        auto *holder = reinterpret_cast<BGJSV8EngineJavaErrorHolder *>(data.GetParameter());
+        env->DeleteGlobalRef(holder->throwable);
+        delete holder;
+    });
 }
 
 /**
@@ -1142,10 +1150,10 @@ void BGJSV8Engine::createContext() {
         LOGD("Created default platform %p", defaultPlatform.get());
         v8::V8::InitializePlatform(defaultPlatform.get());
         LOGD("Initialized platform");
-        v8::V8::Initialize();
         std::string flags = "--expose_gc --max_old_space_size=";
         flags = flags + std::to_string(_maxHeapSize);
         v8::V8::SetFlagsFromString(flags.c_str(), (int) flags.length());
+        v8::V8::Initialize();
         LOGD("Initialized v8: %s", v8::V8::GetVersion());
     }
 
