@@ -964,12 +964,15 @@ static void js_context_putImageData(const v8::FunctionCallbackInfo<v8::Value>& a
 }
 
 void js_canvas_destruct(const v8::WeakCallbackInfo<void>& data) {
-	CanvasCallbackHolder* canvasHolder = (CanvasCallbackHolder*)data.GetParameter();
-
+    // V8 12.4 requires Reset() in the first-pass callback (node must be FREE)
+    CanvasCallbackHolder* canvasHolder = (CanvasCallbackHolder*)data.GetParameter();
     canvasHolder->persistent.Reset();
 
-    delete canvasHolder->canvas;
-    delete canvasHolder;
+    data.SetSecondPassCallback([](const v8::WeakCallbackInfo<void>& data) {
+        CanvasCallbackHolder* canvasHolder = (CanvasCallbackHolder*)data.GetParameter();
+        delete canvasHolder->canvas;
+        delete canvasHolder;
+    });
 }
 
 void BGJSGLModule::js_canvas_constructor(const v8::FunctionCallbackInfo<v8::Value>& args) {
