@@ -5,3 +5,7 @@ build
 libs
 bintray.properties
 .cxx/
+/.gradle/5.6.4
+/.gradle/6.7.1
+/.gradle/checksums
+/.gradle/buildOutputCleanup
