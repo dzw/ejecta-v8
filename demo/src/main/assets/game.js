@@ -1,11 +1,10 @@
 var Canvas = require("canvas");
+var glView = __glView;
 
-function startGame(glView) {
-    var canvas = Canvas(glView);
-    var ctx = canvas.getContext("2d");
-    var w = canvas.width;
-    var h = canvas.height;
-    var dpr = canvas.devicePixelRatio || 1;
+var canvas = Canvas(glView);
+var ctx = canvas.getContext("2d");
+var w = canvas.width;
+var h = canvas.height;
 
     var balls = [];
     var numBalls = 12;
@@ -26,20 +25,14 @@ function startGame(glView) {
         });
     }
 
-    var frameCount = 0;
-    var firstFrame = true;
+var frameCount = 0;
 
-    function draw() {
-        frameCount++;
+function draw() {
+    void canvas;
+    frameCount++;
 
-        if (firstFrame) {
-            ctx.fillStyle = "#141428";
-            ctx.fillRect(0, 0, w, h);
-            firstFrame = false;
-        }
-
-        ctx.fillStyle = "rgba(20, 20, 40, 0.3)";
-        ctx.fillRect(0, 0, w, h);
+    ctx.fillStyle = "rgba(20, 20, 40, 0.25)";
+    ctx.fillRect(0, 0, w, h);
 
         for (var i = 0; i < balls.length; i++) {
             var b = balls[i];
@@ -69,10 +62,8 @@ function startGame(glView) {
         ctx.fillText("Ejecta-V8 Canvas Demo", 10, 30);
         ctx.fillText("Balls: " + numBalls + "  Frame: " + frameCount, 10, 55);
 
-        glView.requestAnimationFrame(draw);
-    }
 
     glView.requestAnimationFrame(draw);
 }
 
-module.exports = startGame;
+glView.requestAnimationFrame(draw);
