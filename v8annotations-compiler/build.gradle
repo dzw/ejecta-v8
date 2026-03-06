@@ -6,8 +6,13 @@ java {
     targetCompatibility = JavaVersion.VERSION_17
 }
 
+repositories {
+    mavenCentral()
+    google()
+}
+
 dependencies {
-    implementation project(':ejecta-v8:v8annotations')
+    implementation project(':v8annotations')
     implementation 'com.squareup:javapoet:1.13.0'
     implementation fileTree(dir: 'libs', include: ['*.jar'])
 }

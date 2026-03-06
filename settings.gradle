@@ -2,3 +2,4 @@ rootProject.name = 'ejecta-v8'
 
 include ':v8annotations'
 include ':v8annotations-compiler'
+include ':demo'
