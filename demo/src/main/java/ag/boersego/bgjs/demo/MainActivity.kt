@@ -2,47 +2,54 @@ package ag.boersego.bgjs.demo
 
 import android.os.Bundle
 import android.util.Log
+import android.widget.FrameLayout
 import androidx.appcompat.app.AppCompatActivity
 import ag.boersego.bgjs.V8Engine
-import ag.boersego.bgjs.demo.databinding.ActivityMainBinding
 
 class MainActivity : AppCompatActivity() {
 
-    private lateinit var binding: ActivityMainBinding
     private lateinit var engine: V8Engine
+    private var gameView: GameTextureView? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        binding = ActivityMainBinding.inflate(layoutInflater)
-        setContentView(binding.root)
+        setContentView(R.layout.activity_main)
 
-        binding.btnRun.isEnabled = false
+        val container = findViewById<FrameLayout>(R.id.gameContainer)
 
         engine = V8Engine()
         engine.addStatusHandler {
             runOnUiThread {
-                binding.tvStatus.text = "Status: V8 engine ready"
-                binding.btnRun.isEnabled = true
+                Log.d(TAG, "V8 engine ready, creating game view")
+                gameView = GameTextureView(this, engine)
+                container.addView(
+                    gameView,
+                    FrameLayout.LayoutParams(
+                        FrameLayout.LayoutParams.MATCH_PARENT,
+                        FrameLayout.LayoutParams.MATCH_PARENT
+                    )
+                )
             }
         }
         engine.start(applicationContext)
+    }
 
-        binding.btnRun.setOnClickListener {
-            val script = binding.etScript.text.toString()
-            if (script.isBlank()) return@setOnClickListener
+    override fun onPause() {
+        super.onPause()
+        gameView?.pause()
+        engine.pause()
+    }
 
-            try {
-                val result = engine.runScript(script, "demo.js")
-                val output = binding.tvOutput.text.toString()
-                val newLine = "> $script\n$result\n\n"
-                binding.tvOutput.text = newLine + output
-            } catch (e: Exception) {
-                Log.e(TAG, "Script error", e)
-                val output = binding.tvOutput.text.toString()
-                val newLine = "> $script\nError: ${e.message}\n\n"
-                binding.tvOutput.text = newLine + output
-            }
-        }
+    override fun onResume() {
+        super.onResume()
+        gameView?.unpause()
+        engine.unpause()
+    }
+
+    override fun onDestroy() {
+        gameView?.finish()
+        engine.shutdown()
+        super.onDestroy()
     }
 
     companion object {
